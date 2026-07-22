@@ -1,0 +1,1 @@
+/usr/bin/c++  -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/aegis_proxy.dir/main.cpp.o CMakeFiles/aegis_proxy.dir/connection_pool.cpp.o CMakeFiles/aegis_proxy.dir/session.cpp.o CMakeFiles/aegis_proxy.dir/hash_ring.cpp.o -o aegis_proxy

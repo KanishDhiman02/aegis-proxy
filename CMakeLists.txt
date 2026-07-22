@@ -18,12 +18,21 @@ add_executable(aegis_proxy
     main.cpp
     connection_pool.cpp
     session.cpp
+    hash_ring.cpp
 )
 
 target_include_directories(aegis_proxy PRIVATE ${asio_SOURCE_DIR}/asio/include)
 target_compile_definitions(aegis_proxy PRIVATE ASIO_STANDALONE)
 target_link_libraries(aegis_proxy PRIVATE Threads::Threads)
 
+# Standalone test for the hash ring's distribution / reshuffle properties.
+# Doesn't need Asio at all - pure data structure logic.
+add_executable(test_hash_ring
+    test_hash_ring.cpp
+    hash_ring.cpp
+)
+
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     target_compile_options(aegis_proxy PRIVATE -Wall -Wextra)
+    target_compile_options(test_hash_ring PRIVATE -Wall -Wextra -O2)
 endif()
