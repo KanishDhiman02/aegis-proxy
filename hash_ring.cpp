@@ -86,6 +86,9 @@ std::optional<std::size_t> HashRing::get_backend_excluding(
     }
 
     uint64_t h = hash_key(key);
+// We use lower_bound(h) to find the first vnode >= h. 
+// Using upper_bound(h) would cause exact hash collisions with a vnode 
+// to incorrectly skip to the next server on the ring.
     auto it = ring_.lower_bound(h);
     if (it == ring_.end()) {
         it = ring_.begin();

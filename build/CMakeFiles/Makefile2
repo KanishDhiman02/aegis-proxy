@@ -65,11 +65,13 @@ CMAKE_BINARY_DIR = /Users/kanishdhiman/Desktop/proxy/build
 # The main recursive "all" target.
 all: CMakeFiles/aegis_proxy.dir/all
 all: CMakeFiles/test_hash_ring.dir/all
+all: CMakeFiles/test_rate_limiter.dir/all
 .PHONY : all
 
 # The main recursive "codegen" target.
 codegen: CMakeFiles/aegis_proxy.dir/codegen
 codegen: CMakeFiles/test_hash_ring.dir/codegen
+codegen: CMakeFiles/test_rate_limiter.dir/codegen
 .PHONY : codegen
 
 # The main recursive "preinstall" target.
@@ -79,6 +81,7 @@ preinstall:
 # The main recursive "clean" target.
 clean: CMakeFiles/aegis_proxy.dir/clean
 clean: CMakeFiles/test_hash_ring.dir/clean
+clean: CMakeFiles/test_rate_limiter.dir/clean
 .PHONY : clean
 
 #=============================================================================
@@ -88,12 +91,12 @@ clean: CMakeFiles/test_hash_ring.dir/clean
 CMakeFiles/aegis_proxy.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/aegis_proxy.dir/build.make CMakeFiles/aegis_proxy.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/aegis_proxy.dir/build.make CMakeFiles/aegis_proxy.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/kanishdhiman/Desktop/proxy/build/CMakeFiles --progress-num=1,2,3,4,5 "Built target aegis_proxy"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/kanishdhiman/Desktop/proxy/build/CMakeFiles --progress-num=1,2,3,4,5,6 "Built target aegis_proxy"
 .PHONY : CMakeFiles/aegis_proxy.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/aegis_proxy.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/kanishdhiman/Desktop/proxy/build/CMakeFiles 5
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/kanishdhiman/Desktop/proxy/build/CMakeFiles 6
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/aegis_proxy.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /Users/kanishdhiman/Desktop/proxy/build/CMakeFiles 0
 .PHONY : CMakeFiles/aegis_proxy.dir/rule
@@ -105,7 +108,7 @@ aegis_proxy: CMakeFiles/aegis_proxy.dir/rule
 # codegen rule for target.
 CMakeFiles/aegis_proxy.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/aegis_proxy.dir/build.make CMakeFiles/aegis_proxy.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/kanishdhiman/Desktop/proxy/build/CMakeFiles --progress-num=1,2,3,4,5 "Finished codegen for target aegis_proxy"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/kanishdhiman/Desktop/proxy/build/CMakeFiles --progress-num=1,2,3,4,5,6 "Finished codegen for target aegis_proxy"
 .PHONY : CMakeFiles/aegis_proxy.dir/codegen
 
 # clean rule for target.
@@ -120,7 +123,7 @@ CMakeFiles/aegis_proxy.dir/clean:
 CMakeFiles/test_hash_ring.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_hash_ring.dir/build.make CMakeFiles/test_hash_ring.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_hash_ring.dir/build.make CMakeFiles/test_hash_ring.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/kanishdhiman/Desktop/proxy/build/CMakeFiles --progress-num=6,7,8 "Built target test_hash_ring"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/kanishdhiman/Desktop/proxy/build/CMakeFiles --progress-num=7,8,9 "Built target test_hash_ring"
 .PHONY : CMakeFiles/test_hash_ring.dir/all
 
 # Build rule for subdir invocation for target.
@@ -137,13 +140,45 @@ test_hash_ring: CMakeFiles/test_hash_ring.dir/rule
 # codegen rule for target.
 CMakeFiles/test_hash_ring.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_hash_ring.dir/build.make CMakeFiles/test_hash_ring.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/kanishdhiman/Desktop/proxy/build/CMakeFiles --progress-num=6,7,8 "Finished codegen for target test_hash_ring"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/kanishdhiman/Desktop/proxy/build/CMakeFiles --progress-num=7,8,9 "Finished codegen for target test_hash_ring"
 .PHONY : CMakeFiles/test_hash_ring.dir/codegen
 
 # clean rule for target.
 CMakeFiles/test_hash_ring.dir/clean:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_hash_ring.dir/build.make CMakeFiles/test_hash_ring.dir/clean
 .PHONY : CMakeFiles/test_hash_ring.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/test_rate_limiter.dir
+
+# All Build rule for target.
+CMakeFiles/test_rate_limiter.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_rate_limiter.dir/build.make CMakeFiles/test_rate_limiter.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_rate_limiter.dir/build.make CMakeFiles/test_rate_limiter.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/kanishdhiman/Desktop/proxy/build/CMakeFiles --progress-num=10,11,12 "Built target test_rate_limiter"
+.PHONY : CMakeFiles/test_rate_limiter.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/test_rate_limiter.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/kanishdhiman/Desktop/proxy/build/CMakeFiles 3
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/test_rate_limiter.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/kanishdhiman/Desktop/proxy/build/CMakeFiles 0
+.PHONY : CMakeFiles/test_rate_limiter.dir/rule
+
+# Convenience name for target.
+test_rate_limiter: CMakeFiles/test_rate_limiter.dir/rule
+.PHONY : test_rate_limiter
+
+# codegen rule for target.
+CMakeFiles/test_rate_limiter.dir/codegen:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_rate_limiter.dir/build.make CMakeFiles/test_rate_limiter.dir/codegen
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/kanishdhiman/Desktop/proxy/build/CMakeFiles --progress-num=10,11,12 "Finished codegen for target test_rate_limiter"
+.PHONY : CMakeFiles/test_rate_limiter.dir/codegen
+
+# clean rule for target.
+CMakeFiles/test_rate_limiter.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_rate_limiter.dir/build.make CMakeFiles/test_rate_limiter.dir/clean
+.PHONY : CMakeFiles/test_rate_limiter.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.

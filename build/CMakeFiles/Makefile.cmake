@@ -62,4 +62,5 @@ set(CMAKE_MAKEFILE_PRODUCTS
 set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/aegis_proxy.dir/DependInfo.cmake"
   "CMakeFiles/test_hash_ring.dir/DependInfo.cmake"
+  "CMakeFiles/test_rate_limiter.dir/DependInfo.cmake"
   )

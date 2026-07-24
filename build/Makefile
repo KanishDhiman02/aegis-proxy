@@ -142,6 +142,19 @@ test_hash_ring/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_hash_ring.dir/build.make CMakeFiles/test_hash_ring.dir/build
 .PHONY : test_hash_ring/fast
 
+#=============================================================================
+# Target rules for targets named test_rate_limiter
+
+# Build rule for target.
+test_rate_limiter: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_rate_limiter
+.PHONY : test_rate_limiter
+
+# fast build rule for target.
+test_rate_limiter/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_rate_limiter.dir/build.make CMakeFiles/test_rate_limiter.dir/build
+.PHONY : test_rate_limiter/fast
+
 connection_pool.o: connection_pool.cpp.o
 .PHONY : connection_pool.o
 
@@ -217,6 +230,33 @@ main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/aegis_proxy.dir/build.make CMakeFiles/aegis_proxy.dir/main.cpp.s
 .PHONY : main.cpp.s
 
+rate_limiter.o: rate_limiter.cpp.o
+.PHONY : rate_limiter.o
+
+# target to build an object file
+rate_limiter.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/aegis_proxy.dir/build.make CMakeFiles/aegis_proxy.dir/rate_limiter.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_rate_limiter.dir/build.make CMakeFiles/test_rate_limiter.dir/rate_limiter.cpp.o
+.PHONY : rate_limiter.cpp.o
+
+rate_limiter.i: rate_limiter.cpp.i
+.PHONY : rate_limiter.i
+
+# target to preprocess a source file
+rate_limiter.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/aegis_proxy.dir/build.make CMakeFiles/aegis_proxy.dir/rate_limiter.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_rate_limiter.dir/build.make CMakeFiles/test_rate_limiter.dir/rate_limiter.cpp.i
+.PHONY : rate_limiter.cpp.i
+
+rate_limiter.s: rate_limiter.cpp.s
+.PHONY : rate_limiter.s
+
+# target to generate assembly for a file
+rate_limiter.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/aegis_proxy.dir/build.make CMakeFiles/aegis_proxy.dir/rate_limiter.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_rate_limiter.dir/build.make CMakeFiles/test_rate_limiter.dir/rate_limiter.cpp.s
+.PHONY : rate_limiter.cpp.s
+
 session.o: session.cpp.o
 .PHONY : session.o
 
@@ -265,6 +305,30 @@ test_hash_ring.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_hash_ring.dir/build.make CMakeFiles/test_hash_ring.dir/test_hash_ring.cpp.s
 .PHONY : test_hash_ring.cpp.s
 
+test_rate_limiter.o: test_rate_limiter.cpp.o
+.PHONY : test_rate_limiter.o
+
+# target to build an object file
+test_rate_limiter.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_rate_limiter.dir/build.make CMakeFiles/test_rate_limiter.dir/test_rate_limiter.cpp.o
+.PHONY : test_rate_limiter.cpp.o
+
+test_rate_limiter.i: test_rate_limiter.cpp.i
+.PHONY : test_rate_limiter.i
+
+# target to preprocess a source file
+test_rate_limiter.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_rate_limiter.dir/build.make CMakeFiles/test_rate_limiter.dir/test_rate_limiter.cpp.i
+.PHONY : test_rate_limiter.cpp.i
+
+test_rate_limiter.s: test_rate_limiter.cpp.s
+.PHONY : test_rate_limiter.s
+
+# target to generate assembly for a file
+test_rate_limiter.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_rate_limiter.dir/build.make CMakeFiles/test_rate_limiter.dir/test_rate_limiter.cpp.s
+.PHONY : test_rate_limiter.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -275,6 +339,7 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... aegis_proxy"
 	@echo "... test_hash_ring"
+	@echo "... test_rate_limiter"
 	@echo "... connection_pool.o"
 	@echo "... connection_pool.i"
 	@echo "... connection_pool.s"
@@ -284,12 +349,18 @@ help:
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
+	@echo "... rate_limiter.o"
+	@echo "... rate_limiter.i"
+	@echo "... rate_limiter.s"
 	@echo "... session.o"
 	@echo "... session.i"
 	@echo "... session.s"
 	@echo "... test_hash_ring.o"
 	@echo "... test_hash_ring.i"
 	@echo "... test_hash_ring.s"
+	@echo "... test_rate_limiter.o"
+	@echo "... test_rate_limiter.i"
+	@echo "... test_rate_limiter.s"
 .PHONY : help
 
 

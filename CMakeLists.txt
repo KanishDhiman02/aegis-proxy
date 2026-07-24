@@ -19,6 +19,7 @@ add_executable(aegis_proxy
     connection_pool.cpp
     session.cpp
     hash_ring.cpp
+    rate_limiter.cpp
 )
 
 target_include_directories(aegis_proxy PRIVATE ${asio_SOURCE_DIR}/asio/include)
@@ -32,7 +33,16 @@ add_executable(test_hash_ring
     hash_ring.cpp
 )
 
+# Standalone correctness + contention benchmark for the rate limiter.
+# Also doesn't need Asio - pure data structure + threading logic.
+add_executable(test_rate_limiter
+    test_rate_limiter.cpp
+    rate_limiter.cpp
+)
+target_link_libraries(test_rate_limiter PRIVATE Threads::Threads)
+
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     target_compile_options(aegis_proxy PRIVATE -Wall -Wextra)
     target_compile_options(test_hash_ring PRIVATE -Wall -Wextra -O2)
+    target_compile_options(test_rate_limiter PRIVATE -Wall -Wextra -O2)
 endif()

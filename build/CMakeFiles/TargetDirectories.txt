@@ -1,4 +1,5 @@
 /Users/kanishdhiman/Desktop/proxy/build/CMakeFiles/aegis_proxy.dir
 /Users/kanishdhiman/Desktop/proxy/build/CMakeFiles/test_hash_ring.dir
+/Users/kanishdhiman/Desktop/proxy/build/CMakeFiles/test_rate_limiter.dir
 /Users/kanishdhiman/Desktop/proxy/build/CMakeFiles/edit_cache.dir
 /Users/kanishdhiman/Desktop/proxy/build/CMakeFiles/rebuild_cache.dir
