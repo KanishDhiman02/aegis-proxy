@@ -49,9 +49,24 @@ add_executable(test_circuit_breaker
 )
 target_link_libraries(test_circuit_breaker PRIVATE Threads::Threads)
 
+# Full integration / chaos test: drives the real handle_client pipeline
+# over real sockets against controllable in-process fake backends.
+add_executable(test_proxy_integration
+    test_proxy_integration.cpp
+    connection_pool.cpp
+    session.cpp
+    hash_ring.cpp
+    rate_limiter.cpp
+    circuit_breaker.cpp
+)
+target_include_directories(test_proxy_integration PRIVATE ${asio_SOURCE_DIR}/asio/include)
+target_compile_definitions(test_proxy_integration PRIVATE ASIO_STANDALONE)
+target_link_libraries(test_proxy_integration PRIVATE Threads::Threads)
+
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     target_compile_options(aegis_proxy PRIVATE -Wall -Wextra)
     target_compile_options(test_hash_ring PRIVATE -Wall -Wextra -O2)
     target_compile_options(test_rate_limiter PRIVATE -Wall -Wextra -O2)
     target_compile_options(test_circuit_breaker PRIVATE -Wall -Wextra -O2)
+    target_compile_options(test_proxy_integration PRIVATE -Wall -Wextra)
 endif()

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <asio.hpp>
+#include <atomic>
 #include <deque>
 #include <mutex>
 #include <string>
@@ -46,13 +47,25 @@ public:
     std::size_t backend_count() const { return backends_.size(); }
     const BackendConfig& backend_config(std::size_t index) const { return backends_.at(index); }
 
+    // "Active" = currently checked out via acquire() and not yet
+    // released - i.e. in the middle of a live relay. "Idle" = sitting in
+    // the free list, warm and ready. Neither existed before this phase;
+    // metrics needed a real signal, not an approximation, so acquire()/
+    // release() now maintain an atomic active counter per backend, and
+    // idle count is read straight from the free-list size under lock.
+    int active_count(std::size_t backend_index) const {
+        return active_counts_.at(backend_index).load(std::memory_order_relaxed);
+    }
+    int idle_count(std::size_t backend_index) const;
+
 private:
     asio::awaitable<asio::ip::tcp::socket> connect(std::size_t backend_index);
 
     asio::io_context& io_context_;
     std::vector<BackendConfig> backends_;
     std::vector<std::deque<asio::ip::tcp::socket>> free_sockets_;
-    std::vector<std::mutex> mutexes_;
+    mutable std::vector<std::mutex> mutexes_;
+    std::vector<std::atomic<int>> active_counts_;
 };
 
 } // namespace aegis

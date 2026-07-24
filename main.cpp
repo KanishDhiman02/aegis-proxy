@@ -8,8 +8,10 @@
 #include "circuit_breaker.hpp"
 #include "connection_pool.hpp"
 #include "hash_ring.hpp"
+#include "metrics.hpp"
 #include "rate_limiter.hpp"
 #include "session.hpp"
+#include "tracer.hpp"
 
 using asio::ip::tcp;
 
@@ -57,17 +59,55 @@ asio::awaitable<void> reap_loop(aegis::RateLimiter& limiter) {
     }
 }
 
+// Serves a Prometheus-format snapshot on every connection. Deliberately
+// not HTTP-request-aware (doesn't check the path or method) - this is a
+// dedicated metrics port, not a multiplexed one, matching the original
+// architecture's "Telemetry Aggregator ... exposes them via a dedicated
+// metrics endpoint" rather than bolting metrics onto the proxy's own
+// listener.
+asio::awaitable<void> serve_metrics(tcp::socket socket, const aegis::MetricsRegistry& metrics) {
+    std::array<char, 512> discard;
+    asio::error_code ec;
+    co_await socket.async_read_some(asio::buffer(discard), asio::redirect_error(asio::use_awaitable, ec));
+
+    std::string body = metrics.render_prometheus();
+    std::string response =
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/plain; version=0.0.4\r\n"
+        "Content-Length: " + std::to_string(body.size()) + "\r\n"
+        "Connection: close\r\n"
+        "\r\n" + body;
+    co_await asio::async_write(socket, asio::buffer(response), asio::redirect_error(asio::use_awaitable, ec));
+
+    socket.shutdown(tcp::socket::shutdown_send, ec);
+    for (;;) {
+        std::size_t n = co_await socket.async_read_some(
+            asio::buffer(discard), asio::redirect_error(asio::use_awaitable, ec));
+        if (ec || n == 0) break;
+    }
+}
+
+asio::awaitable<void> metrics_listen(tcp::acceptor& acceptor, const aegis::MetricsRegistry& metrics) {
+    for (;;) {
+        tcp::socket socket = co_await acceptor.async_accept(asio::use_awaitable);
+        asio::co_spawn(acceptor.get_executor(), serve_metrics(std::move(socket), metrics), asio::detached);
+    }
+}
+
 asio::awaitable<void> listen(tcp::acceptor& acceptor, aegis::ConnectionPool& pool,
                               aegis::HashRing& ring, aegis::RateLimiter& limiter,
-                              std::deque<aegis::CircuitBreaker>& breakers) {
+                              std::deque<aegis::CircuitBreaker>& breakers,
+                              aegis::MetricsRegistry& metrics) {
     for (;;) {
         tcp::socket socket = co_await acceptor.async_accept(asio::use_awaitable);
         socket.set_option(tcp::no_delay(true));
 
+        std::string correlation_id = aegis::CorrelationId::generate();
+
         asio::error_code ec;
         auto remote = socket.remote_endpoint(ec);
         if (ec) {
-            std::cerr << "[aegis] could not read remote endpoint, dropping connection\n";
+            std::cerr << "cid=" << correlation_id << " event=remote_endpoint_failed\n";
             continue;
         }
         std::string client_key = remote.address().to_string();
@@ -76,6 +116,8 @@ asio::awaitable<void> listen(tcp::acceptor& acceptor, aegis::ConnectionPool& poo
         // before we spend a pool acquisition or hash ring lookup on a
         // request we're about to drop anyway.
         if (!limiter.allow(client_key)) {
+            metrics.record_rate_limited();
+            std::cerr << "cid=" << correlation_id << " event=rate_limited client=" << client_key << "\n";
             asio::co_spawn(acceptor.get_executor(), send_429(std::move(socket)), asio::detached);
             continue;
         }
@@ -85,19 +127,23 @@ asio::awaitable<void> listen(tcp::acceptor& acceptor, aegis::ConnectionPool& poo
         // backend" vs "give up" as attempts unfold.
         asio::co_spawn(
             acceptor.get_executor(),
-            aegis::handle_client(std::move(socket), pool, ring, breakers, client_key),
+            aegis::handle_client(std::move(socket), pool, ring, breakers, client_key,
+                                  correlation_id, metrics),
             asio::detached);
     }
 }
 
 // Ensures the pool is warmed before we start accepting client traffic,
 // without blocking the io_context thread while warm-up connections happen.
-asio::awaitable<void> run(tcp::acceptor& acceptor, aegis::ConnectionPool& pool,
-                           aegis::HashRing& ring, aegis::RateLimiter& limiter,
-                           std::deque<aegis::CircuitBreaker>& breakers) {
+asio::awaitable<void> run(tcp::acceptor& acceptor, tcp::acceptor& metrics_acceptor,
+                           aegis::ConnectionPool& pool, aegis::HashRing& ring,
+                           aegis::RateLimiter& limiter, std::deque<aegis::CircuitBreaker>& breakers,
+                           aegis::MetricsRegistry& metrics) {
     co_await pool.warm_up();
-    asio::co_spawn(co_await asio::this_coro::executor, reap_loop(limiter), asio::detached);
-    co_await listen(acceptor, pool, ring, limiter, breakers);
+    auto executor = co_await asio::this_coro::executor;
+    asio::co_spawn(executor, reap_loop(limiter), asio::detached);
+    asio::co_spawn(executor, metrics_listen(metrics_acceptor, metrics), asio::detached);
+    co_await listen(acceptor, pool, ring, limiter, breakers, metrics);
 }
 
 } // namespace
@@ -107,6 +153,7 @@ int main(int argc, char* argv[]) {
     if (argc > 1) {
         listen_port = static_cast<unsigned short>(std::stoi(argv[1]));
     }
+    unsigned short metrics_port = static_cast<unsigned short>(listen_port + 1);
 
     try {
         asio::io_context io_context(1); // single-threaded for Phase 2
@@ -134,19 +181,24 @@ int main(int argc, char* argv[]) {
 
         // One breaker per backend: 5 consecutive failures trips OPEN,
         // 5 second cooldown before a HALF_OPEN trial, 2 consecutive
-        // trial successes to close again. reserve() + emplace_back
-        // avoids ever moving/copying a CircuitBreaker (it holds a
-        // std::mutex, which is neither).
+        // trial successes to close again. std::deque (not vector) since
+        // CircuitBreaker holds a std::mutex and is therefore neither
+        // movable nor copyable.
         std::deque<aegis::CircuitBreaker> breakers;
         for (std::size_t i = 0; i < backends.size(); ++i) {
             breakers.emplace_back(/*failure_threshold=*/5, /*success_threshold=*/2,
                                    std::chrono::milliseconds(5000));
         }
 
-        tcp::acceptor acceptor(io_context, tcp::endpoint(tcp::v4(), listen_port));
-        std::cout << "[aegis] listening on 0.0.0.0:" << listen_port << "\n";
+        aegis::MetricsRegistry metrics(backends.size());
 
-        asio::co_spawn(io_context, run(acceptor, pool, ring, limiter, breakers), asio::detached);
+        tcp::acceptor acceptor(io_context, tcp::endpoint(tcp::v4(), listen_port));
+        tcp::acceptor metrics_acceptor(io_context, tcp::endpoint(tcp::v4(), metrics_port));
+        std::cout << "[aegis] listening on 0.0.0.0:" << listen_port << "\n";
+        std::cout << "[aegis] metrics on 0.0.0.0:" << metrics_port << " (GET / for Prometheus text)\n";
+
+        asio::co_spawn(io_context, run(acceptor, metrics_acceptor, pool, ring, limiter, breakers, metrics),
+                        asio::detached);
 
         asio::signal_set signals(io_context, SIGINT, SIGTERM);
         signals.async_wait([&](auto, auto) { io_context.stop(); });

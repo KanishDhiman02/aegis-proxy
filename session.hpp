@@ -8,6 +8,8 @@
 #include "circuit_breaker.hpp"
 #include "connection_pool.hpp"
 #include "hash_ring.hpp"
+#include "metrics.hpp"
+#include "tracer.hpp"
 
 namespace aegis {
 
@@ -27,11 +29,18 @@ namespace aegis {
 //   5. Give up with HTTP 503 only if every attempt failed before any
 //      response bytes were sent - so 503 is always a clean, whole
 //      response, never mixed into a partially-streamed one.
+//
+// Every attempt, retry, breaker check, and outcome is logged against
+// `correlation_id` via a TraceLogger, and reflected into `metrics` -
+// this is what turns "the proxy did something" into "here is exactly
+// what it did, for this one request, across every subsystem it touched."
 asio::awaitable<void> handle_client(asio::ip::tcp::socket client_socket,
                                      ConnectionPool& pool,
                                      HashRing& ring,
                                      std::deque<CircuitBreaker>& breakers,
                                      std::string client_key,
+                                     std::string correlation_id,
+                                     MetricsRegistry& metrics,
                                      int max_attempts = 3);
 
 } // namespace aegis

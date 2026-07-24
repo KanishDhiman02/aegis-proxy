@@ -7,7 +7,8 @@ ConnectionPool::ConnectionPool(asio::io_context& io_context, std::vector<Backend
     : io_context_(io_context),
       backends_(std::move(backends)),
       free_sockets_(backends_.size()),
-      mutexes_(backends_.size()) {}
+      mutexes_(backends_.size()),
+      active_counts_(backends_.size()) {}
 
 asio::awaitable<asio::ip::tcp::socket> ConnectionPool::connect(std::size_t backend_index) {
     const auto& cfg = backends_.at(backend_index);
@@ -52,20 +53,30 @@ asio::awaitable<asio::ip::tcp::socket> ConnectionPool::acquire(std::size_t backe
         if (!free_list.empty()) {
             asio::ip::tcp::socket socket = std::move(free_list.back());
             free_list.pop_back();
+            active_counts_.at(backend_index).fetch_add(1, std::memory_order_relaxed);
             co_return socket;
         }
     }
     // Pool exhausted: open a fresh connection rather than block the request.
     auto socket = co_await connect(backend_index);
+    active_counts_.at(backend_index).fetch_add(1, std::memory_order_relaxed);
     co_return socket;
 }
 
 void ConnectionPool::release(std::size_t backend_index, asio::ip::tcp::socket socket, bool healthy) {
+    // Whether we recycle it or drop it, it's no longer "checked out".
+    active_counts_.at(backend_index).fetch_sub(1, std::memory_order_relaxed);
+
     if (!healthy || !socket.is_open()) {
         return; // let it destruct/close - don't recycle a broken socket
     }
     std::lock_guard<std::mutex> lock(mutexes_.at(backend_index));
     free_sockets_.at(backend_index).push_back(std::move(socket));
+}
+
+int ConnectionPool::idle_count(std::size_t backend_index) const {
+    std::lock_guard<std::mutex> lock(mutexes_.at(backend_index));
+    return static_cast<int>(free_sockets_.at(backend_index).size());
 }
 
 } // namespace aegis
