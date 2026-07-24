@@ -20,6 +20,7 @@ add_executable(aegis_proxy
     session.cpp
     hash_ring.cpp
     rate_limiter.cpp
+    circuit_breaker.cpp
 )
 
 target_include_directories(aegis_proxy PRIVATE ${asio_SOURCE_DIR}/asio/include)
@@ -41,8 +42,16 @@ add_executable(test_rate_limiter
 )
 target_link_libraries(test_rate_limiter PRIVATE Threads::Threads)
 
+# Standalone circuit breaker state machine tests. No Asio dependency.
+add_executable(test_circuit_breaker
+    test_circuit_breaker.cpp
+    circuit_breaker.cpp
+)
+target_link_libraries(test_circuit_breaker PRIVATE Threads::Threads)
+
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     target_compile_options(aegis_proxy PRIVATE -Wall -Wextra)
     target_compile_options(test_hash_ring PRIVATE -Wall -Wextra -O2)
     target_compile_options(test_rate_limiter PRIVATE -Wall -Wextra -O2)
+    target_compile_options(test_circuit_breaker PRIVATE -Wall -Wextra -O2)
 endif()

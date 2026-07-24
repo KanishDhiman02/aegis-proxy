@@ -1,8 +1,11 @@
 #include <asio.hpp>
 #include <array>
+#include <chrono>
+#include <deque>
 #include <iostream>
 #include <vector>
 
+#include "circuit_breaker.hpp"
 #include "connection_pool.hpp"
 #include "hash_ring.hpp"
 #include "rate_limiter.hpp"
@@ -55,7 +58,8 @@ asio::awaitable<void> reap_loop(aegis::RateLimiter& limiter) {
 }
 
 asio::awaitable<void> listen(tcp::acceptor& acceptor, aegis::ConnectionPool& pool,
-                              aegis::HashRing& ring, aegis::RateLimiter& limiter) {
+                              aegis::HashRing& ring, aegis::RateLimiter& limiter,
+                              std::deque<aegis::CircuitBreaker>& breakers) {
     for (;;) {
         tcp::socket socket = co_await acceptor.async_accept(asio::use_awaitable);
         socket.set_option(tcp::no_delay(true));
@@ -76,15 +80,12 @@ asio::awaitable<void> listen(tcp::acceptor& acceptor, aegis::ConnectionPool& poo
             continue;
         }
 
-        auto backend_index = ring.get_backend(client_key);
-        if (!backend_index) {
-            std::cerr << "[aegis] no backends registered in ring, dropping connection\n";
-            continue;
-        }
-
+        // Routing + circuit-breaker checks + retry now live inside
+        // handle_client, since only it can decide "try a different
+        // backend" vs "give up" as attempts unfold.
         asio::co_spawn(
             acceptor.get_executor(),
-            aegis::handle_client(std::move(socket), pool, *backend_index),
+            aegis::handle_client(std::move(socket), pool, ring, breakers, client_key),
             asio::detached);
     }
 }
@@ -92,10 +93,11 @@ asio::awaitable<void> listen(tcp::acceptor& acceptor, aegis::ConnectionPool& poo
 // Ensures the pool is warmed before we start accepting client traffic,
 // without blocking the io_context thread while warm-up connections happen.
 asio::awaitable<void> run(tcp::acceptor& acceptor, aegis::ConnectionPool& pool,
-                           aegis::HashRing& ring, aegis::RateLimiter& limiter) {
+                           aegis::HashRing& ring, aegis::RateLimiter& limiter,
+                           std::deque<aegis::CircuitBreaker>& breakers) {
     co_await pool.warm_up();
     asio::co_spawn(co_await asio::this_coro::executor, reap_loop(limiter), asio::detached);
-    co_await listen(acceptor, pool, ring, limiter);
+    co_await listen(acceptor, pool, ring, limiter, breakers);
 }
 
 } // namespace
@@ -130,10 +132,21 @@ int main(int argc, char* argv[]) {
         // measured per-backend capacity, not a guess.
         aegis::RateLimiter limiter(/*refill_rate_per_sec=*/10.0, /*capacity=*/20.0);
 
+        // One breaker per backend: 5 consecutive failures trips OPEN,
+        // 5 second cooldown before a HALF_OPEN trial, 2 consecutive
+        // trial successes to close again. reserve() + emplace_back
+        // avoids ever moving/copying a CircuitBreaker (it holds a
+        // std::mutex, which is neither).
+        std::deque<aegis::CircuitBreaker> breakers;
+        for (std::size_t i = 0; i < backends.size(); ++i) {
+            breakers.emplace_back(/*failure_threshold=*/5, /*success_threshold=*/2,
+                                   std::chrono::milliseconds(5000));
+        }
+
         tcp::acceptor acceptor(io_context, tcp::endpoint(tcp::v4(), listen_port));
         std::cout << "[aegis] listening on 0.0.0.0:" << listen_port << "\n";
 
-        asio::co_spawn(io_context, run(acceptor, pool, ring, limiter), asio::detached);
+        asio::co_spawn(io_context, run(acceptor, pool, ring, limiter, breakers), asio::detached);
 
         asio::signal_set signals(io_context, SIGINT, SIGTERM);
         signals.async_wait([&](auto, auto) { io_context.stop(); });
