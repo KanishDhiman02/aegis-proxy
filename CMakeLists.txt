@@ -4,6 +4,12 @@ project(aegis_proxy CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Generates build/compile_commands.json - this is what gives VS Code /
+# clangd / CLion accurate autocomplete, go-to-definition, and inline
+# error checking for every file in this project. It does not build or
+# run anything by itself; run.sh (see repo root) is what does that.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 include(FetchContent)
 FetchContent_Declare(
     asio
