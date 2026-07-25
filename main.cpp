@@ -3,6 +3,7 @@
 #include <chrono>
 #include <deque>
 #include <iostream>
+#include <cstdlib>
 #include <vector>
 
 #include "circuit_breaker.hpp"
@@ -177,7 +178,22 @@ int main(int argc, char* argv[]) {
         // 10 requests/sec sustained, burst up to 20 - deliberately loose
         // defaults for local testing; production values should come from
         // measured per-backend capacity, not a guess.
-        aegis::RateLimiter limiter(/*refill_rate_per_sec=*/10.0, /*capacity=*/20.0);
+        //
+        // Overridable via env vars for load-testing raw proxy throughput
+        // without permanently changing the production default (e.g. when
+        // benchmarking against nginx from a single client IP, where the
+        // per-client limiter would otherwise be the bottleneck being
+        // measured instead of the proxy itself):
+        //   AEGIS_RATE_LIMIT_RPS=1000000 AEGIS_RATE_LIMIT_BURST=1000000 ./aegis_proxy
+        double refill_rate = 10.0;
+        double burst_capacity = 20.0;
+        if (const char* env_rps = std::getenv("AEGIS_RATE_LIMIT_RPS")) {
+            refill_rate = std::stod(env_rps);
+        }
+        if (const char* env_burst = std::getenv("AEGIS_RATE_LIMIT_BURST")) {
+            burst_capacity = std::stod(env_burst);
+        }
+        aegis::RateLimiter limiter(/*refill_rate_per_sec=*/refill_rate, /*capacity=*/burst_capacity);
 
         // One breaker per backend: 5 consecutive failures trips OPEN,
         // 5 second cooldown before a HALF_OPEN trial, 2 consecutive
