@@ -206,7 +206,6 @@ std::string send_request(unsigned short proxy_port, const std::string& bind_ip, 
 } // namespace
 
 int main() {
-    std::deque<Pipeline> pipelines; // must outlive every scenario - see note above main()
     // A single io_context drives every Pipeline's asio objects; a
     // background thread runs io_context.run() so the blocking
     // send_request() helper (run from the main thread / test threads)
@@ -216,6 +215,21 @@ int main() {
     asio::io_context ioc;
     auto guard = asio::make_work_guard(ioc);
     std::thread io_thread([&ioc]() { ioc.run(); });
+
+    // CRITICAL: pipelines must be declared AFTER ioc (and stays that
+    // way - do not reorder). C++ destroys local variables in reverse
+    // declaration order. Every Pipeline owns acceptors/sockets that were
+    // constructed against ioc; when they destruct, they deregister their
+    // file descriptor from ioc's reactor. If ioc were declared AFTER
+    // pipelines (as it originally was), ioc would be destroyed first,
+    // and Pipeline's acceptors would deregister against an already-dead
+    // io_context - undefined behavior. This is exactly what crashed on
+    // macOS (kqueue_reactor::deregister_descriptor touching a null/freed
+    // context) while silently "passing" on Linux/epoll - UB isn't
+    // guaranteed to manifest the same way across platforms, which is
+    // precisely why this needs to be fixed by construction (declaration
+    // order), not left to chance on any one OS's behavior.
+    std::deque<Pipeline> pipelines;
 
     std::printf("=== Scenario A: normal operation ===\n");
     {
