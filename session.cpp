@@ -96,6 +96,32 @@ asio::awaitable<void> send_status(asio::ip::tcp::socket& socket, int code,
     }
 }
 
+// Builds TraceLogger field vectors via emplace_back rather than an
+// initializer-list of temporary pairs. This isn't just style: a real
+// SIGBUS crash (confirmed via lldb backtrace, memmove blowing past a
+// mapped page while copy-constructing a pair<string,string>) traced
+// back to exactly this pattern - `log.event("x", {{"k", v}, ...})` -
+// used directly at coroutine call sites. The initializer_list's backing
+// array is a temporary whose lifetime/ABI handling did not reliably
+// survive a coroutine suspend/resume boundary (e.g. resuming after
+// co_await pool.acquire()) on AppleClang/ARM64, even though it was
+// never flagged by ASan/UBSan and never reproduced on Linux/GCC.
+// Building the vector explicitly sidesteps the fragile temporary
+// entirely, regardless of the exact ABI mechanism at fault.
+std::vector<std::pair<std::string, std::string>> fields(
+    std::string k1, std::string v1) {
+    std::vector<std::pair<std::string, std::string>> f;
+    f.emplace_back(std::move(k1), std::move(v1));
+    return f;
+}
+std::vector<std::pair<std::string, std::string>> fields(
+    std::string k1, std::string v1, std::string k2, std::string v2) {
+    std::vector<std::pair<std::string, std::string>> f;
+    f.emplace_back(std::move(k1), std::move(v1));
+    f.emplace_back(std::move(k2), std::move(v2));
+    return f;
+}
+
 } // namespace
 
 asio::awaitable<void> handle_client(asio::ip::tcp::socket client_socket,
@@ -107,7 +133,7 @@ asio::awaitable<void> handle_client(asio::ip::tcp::socket client_socket,
                                      MetricsRegistry& metrics,
                                      int max_attempts) {
     TraceLogger log(std::move(correlation_id));
-    log.event("request_received", {{"client", client_key}});
+    log.event("request_received", fields("client", client_key));
     metrics.record_request_received();
 
     std::unordered_set<std::size_t> excluded;
@@ -117,7 +143,7 @@ asio::awaitable<void> handle_client(asio::ip::tcp::socket client_socket,
     while (attempts < max_attempts) {
         auto backend_index = ring.get_backend_excluding(client_key, excluded);
         if (!backend_index) {
-            log.event("ring_exhausted", {{"attempts", std::to_string(attempts)}});
+            log.event("ring_exhausted", fields("attempts", std::to_string(attempts)));
             break;
         }
         std::string idx_str = std::to_string(*backend_index);
@@ -126,7 +152,7 @@ asio::awaitable<void> handle_client(asio::ip::tcp::socket client_socket,
         metrics.set_breaker_state(*backend_index, static_cast<int>(breaker.state()));
 
         if (!breaker.allow_request()) {
-            log.event("breaker_skip", {{"backend", idx_str}, {"reason", "open_or_trial_busy"}});
+            log.event("breaker_skip", fields("backend", idx_str, "reason", "open_or_trial_busy"));
             excluded.insert(*backend_index);
             ++attempts;
             continue;
@@ -139,7 +165,7 @@ asio::awaitable<void> handle_client(asio::ip::tcp::socket client_socket,
             // Couldn't even establish a connection - no bytes have moved
             // in either direction, so this is unconditionally safe to
             // retry against a different backend.
-            log.event("connect_failed", {{"backend", idx_str}, {"error", e.what()}});
+            log.event("connect_failed", fields("backend", idx_str, "error", e.what()));
             breaker.record_failure();
             metrics.record_backend_failure(*backend_index);
             metrics.set_breaker_state(*backend_index, static_cast<int>(breaker.state()));
@@ -148,7 +174,7 @@ asio::awaitable<void> handle_client(asio::ip::tcp::socket client_socket,
             continue;
         }
 
-        log.event("backend_selected", {{"backend", idx_str}, {"attempt", std::to_string(attempts + 1)}});
+        log.event("backend_selected", fields("backend", idx_str, "attempt", std::to_string(attempts + 1)));
         metrics.set_pool_active(*backend_index, pool.active_count(*backend_index));
         metrics.set_pool_idle(*backend_index, pool.idle_count(*backend_index));
 
@@ -161,7 +187,7 @@ asio::awaitable<void> handle_client(asio::ip::tcp::socket client_socket,
             co_await asio::async_write(*backend_socket, asio::buffer(req_buf.data),
                                         asio::redirect_error(asio::use_awaitable, ec));
             if (ec) {
-                log.event("replay_failed", {{"backend", idx_str}});
+                log.event("replay_failed", fields("backend", idx_str));
                 breaker.record_failure();
                 metrics.record_backend_failure(*backend_index);
                 metrics.set_breaker_state(*backend_index, static_cast<int>(breaker.state()));
@@ -197,7 +223,7 @@ asio::awaitable<void> handle_client(asio::ip::tcp::socket client_socket,
             breaker.record_success();
             metrics.record_backend_success(*backend_index);
             metrics.set_breaker_state(*backend_index, static_cast<int>(breaker.state()));
-            log.event("request_succeeded", {{"backend", idx_str}});
+            log.event("request_succeeded", fields("backend", idx_str));
             co_return; // client already has data - this connection is done, win or lose
         }
 
@@ -205,7 +231,7 @@ asio::awaitable<void> handle_client(asio::ip::tcp::socket client_socket,
         breaker.record_failure();
         metrics.record_backend_failure(*backend_index);
         metrics.set_breaker_state(*backend_index, static_cast<int>(breaker.state()));
-        log.event("backend_failed_no_response", {{"backend", idx_str}});
+        log.event("backend_failed_no_response", fields("backend", idx_str));
         excluded.insert(*backend_index);
         ++attempts;
 
@@ -215,13 +241,13 @@ asio::awaitable<void> handle_client(asio::ip::tcp::socket client_socket,
             // backend would be a faithful copy of what the client
             // intended. Stop retrying rather than forward a silently
             // truncated request.
-            log.event("retry_abandoned_buffer_capped", {{"buffered_bytes", std::to_string(req_buf.data.size())}});
+            log.event("retry_abandoned_buffer_capped", fields("buffered_bytes", std::to_string(req_buf.data.size())));
             break;
         }
     }
 
     metrics.record_fallback_503();
-    log.event("fallback_503", {{"attempts", std::to_string(attempts)}});
+    log.event("fallback_503", fields("attempts", std::to_string(attempts)));
     co_await send_status(client_socket, 503, "Service Unavailable",
                           "All backends unavailable\n");
 }
