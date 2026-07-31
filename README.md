@@ -119,30 +119,8 @@ If every attempt is exhausted before any bytes reached the client:
   → HTTP 503, done
 ```
 
-Aegis operates at **Layer 4** — it relays raw TCP bytes and never parses HTTP. This is a deliberate scope decision (see Limitations), not an oversight.
+Aegis operates at **Layer 4** — it relays raw TCP bytes and never parses HTTP. This is a deliberate scope decision, not an oversight.
 
-## Known issues & how they were found
-
-Every bug below was caught by actually running the code under real conditions, not by code inspection:
-
-- **Retry deadlock on partial backend failure** — automated chaos testing (not manual testing) found that retrying a failed backend without buffering the client's already-consumed request bytes left the new backend waiting forever for data that would never arrive. Fixed with a capped request-replay buffer.
-- **RST instead of clean FIN on rejection paths** — closing a socket with unread client bytes still in its receive buffer triggers an OS-level RST, not a clean close, regardless of application intent. Fixed by explicitly draining unread bytes before closing.
-- **Weak hash diffusion under virtual nodes** — plain FNV-1a showed poor load distribution on short, similar keys; a murmur3-style avalanche finalizer fixed it, confirmed by measuring 100,000 simulated keys before and after.
-- **A real SIGBUS crash under concurrent load (ARM64)** — found via `lldb` attached to a live process under real `wrk` load, after ruling out memory-unsafety with AddressSanitizer/UndefinedBehaviorSanitizer (both came back clean). Root cause: an initializer-list-of-temporaries pattern building a debug-log field vector didn't reliably survive a coroutine suspend/resume boundary on AppleClang/ARM64. Fixed by building the vector explicitly instead.
-- **macOS loopback binding gap** — integration tests using non-`127.0.0.1` loopback addresses to simulate distinct clients silently failed to bind on macOS (only Linux auto-aliases the whole `127.0.0.0/8` block). `test.sh` now handles this automatically.
-
-Full write-up of all nine bugs found, with symptom/diagnosis/root-cause/fix for each, is in the project's companion guide document (not in this repo).
-
-## Limitations — what this is not (yet)
-
-Stated plainly, not hidden:
-
-- **Single-threaded.** One `io_context`, one core. The natural next step is `SO_REUSEPORT` with multiple worker threads — one `io_context` per core — which is how nginx and Envoy actually get multi-core throughput.
-- **No TLS/HTTPS termination.** Plain HTTP/TCP only.
-- **Not HTTP-aware at the response level.** The circuit breaker can tell "did any bytes come back," not "did the backend return a 500" — a backend that connects fine but replies with an error page currently looks healthy from Aegis's point of view.
-- **Rate limiting and routing decisions happen once per TCP connection**, not once per HTTP request when a connection is reused via keep-alive.
-
-None of these block this from being a solid, honest systems project — they're the natural "what would you build next" answer.
 
 ## License
 
