@@ -17,7 +17,7 @@ This is not a wrapper around an existing proxy or framework — every piece belo
 
 ## Benchmark results
 
-Load-tested against a baseline nginx reverse proxy under identical, fair conditions — both pinned to a single worker thread (Aegis is currently single-threaded; see **Limitations**), both fronting the same trivial static backend so neither proxy's own overhead was hidden behind backend latency. Generated with `wrk`, 4 threads / 100 connections / 20s, on an 8-core MacBook Air (M-series).
+Load-tested against a baseline nginx reverse proxy under identical, fair conditions — both pinned to a single worker thread (Aegis is currently single-threaded), both fronting the same trivial static backend so neither proxy's own overhead was hidden behind backend latency. Generated with `wrk`, 4 threads / 100 connections / 20s, on an 8-core MacBook Air (M-series).
 
 | Metric | Aegis | nginx (baseline) |
 |---|---|---|
